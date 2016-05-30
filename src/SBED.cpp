@@ -12,6 +12,7 @@
 #define endl '\n'
 #define _ASCII_START 32
 #define _DEBUG false
+#define _MAX_ARGS_NUM 4
 
 /* Consts */
 const unsigned _ASCII_LEN = 255 - 0;
@@ -31,11 +32,22 @@ void print_alignment(const Alignment<int>&, const std::string&, const std::strin
 int main(int argc, char *argv[]) {
 	std::ios_base::sync_with_stdio(false);
 
-	size_t p1 = argc != 3 ? 1 : fast_atoi(argv[1]);		// default = 1
-	size_t p2 = argc != 3 ? 1 : fast_atoi(argv[2]);		// default = 1
+	// arguments: p1 p2 [y | * \ {y}] [true|false]
+	size_t p1 = argc > 2 ? fast_atoi(argv[1]) : 1;		// default = 1
+	size_t p2 = argc > 2 ? fast_atoi(argv[2]) : 1;		// default = 1
 
-	/* (1) read strings and extract sigmas */
-	// TODO: read constraints too
+	bool has_constraints = false;						// if there are constraints
+	if (argc > 3) has_constraints = strcmp(argv[3],"1") || strcmp(argv[3], "y");
+	/* if default_constraints_mode is true:
+	 * - constraints in input mean ALL EXCEPT THESE MATCH
+	 * otherwise:
+	 * - constraints in input mean ONLY THESE MATCH
+	 */
+	bool default_constraints_mode = false;				// the semantic of the constraints
+	if (has_constraints) default_constraints_mode = strcmp(argv[4], "t");
+
+
+	/* (1) read strings and extract sigmas and constraints too */
 	std::string s1, s2;
 	std::string sigma1(""), sigma2("");
 
@@ -47,6 +59,10 @@ int main(int argc, char *argv[]) {
 	size_t sigma2l = sigma2.size();
 	size_t s1l = s1.size();
 	size_t s2l = s2.size();
+
+	std::vector<p_constr> constraints;
+	if (has_constraints)
+		read_constraints(constraints);
 
 
 	/* define the mapping from char -> int */
@@ -83,8 +99,9 @@ int main(int argc, char *argv[]) {
 
 
 	/* identity (classical) matching schema */
-	matching_schema<bool> ms(sigma1l, sigma2l, p1, p2, true);
+	matching_schema<bool> ms(sigma1l, sigma2l, p1, p2, true, default_constraints_mode);
 	ms.set_general(sigma1, sigma2, false);
+	ms.set_constraints(map1, map2, constraints, !default_constraints_mode);
 
 	/* compute the simple Levenshtein distance */
 	//unsigned d = edit_distance_matching_schema(s1i, s2i, s1l, s2l, ms);
@@ -131,9 +148,9 @@ unsigned edit_distance_matching_schema(const unsigned* a, const unsigned* b, con
 	for (size_t i = 1; i < al+1; ++i)
 		for (size_t j = 1; j < bl+1; ++j) {
 			d[i][j] = min(
-					d[i-1][j] + 1,
-					d[i][j-1] + 1,
-					d[i-1][j-1] + 1 * m.ms[a[i-1]][b[j-1]]		// if in the matching schema there's a false, they match
+					d[i-1][j] + 1,							// deletion
+					d[i][j-1] + 1,							// insertion
+					d[i-1][j-1] + 1 * m.ms[a[i-1]][b[j-1]]	// if in the matching schema there's a false, they match
 			);
 		}
 

@@ -1,28 +1,44 @@
 #ifndef MATCHINGSCHEMA_H_
 #define MATCHINGSCHEMA_H_
 
+#include "Utility.h"
+
 template <typename T>
 struct matching_schema {
 	size_t n, m;
 	size_t p1, p2;
 	T** ms;
+	bool** chi;
 
-	matching_schema(size_t a, size_t b, size_t c, size_t d, const T x) : n(a), m(b), p1(c), p2(d) {
+	matching_schema(size_t a, size_t b, size_t c, size_t d, const T x, bool def) : n(a), m(b), p1(c), p2(d) {
 		ms = new T*[n];
 		for (size_t i = 0; i < n; ++i) ms[i] = new T[m];
-		init(x);
+
+		chi = new bool*[n];
+		for (size_t i = 0; i < n; ++i) chi[i] = new bool[m];
+
+		init(x, def);
 	}
 
 	~matching_schema() {
 		for (size_t i = 0; i < n; ++i)
 			delete[] ms[i];
 		delete[] ms;
+
+		for (size_t i = 0; i < n; ++i)
+			delete[] chi[i];
+		delete[] chi;
 	}
 
-	void init(T b) {
+	void init(T b, bool d) {
+		// setup the matching schema
 		for (size_t i = 0; i < n; ++i)
 			for (size_t j = 0; j < m; ++j)
 				ms[i][j] = b;
+		// setup the constraints
+		for (size_t i = 0; i < n; ++i)
+			for (size_t j = 0; j < m; ++j)
+				chi[i][j] = d;
 	}
 
 	void set_identity(std::string& sigma1, std::string& sigma2, T value) {
@@ -41,6 +57,13 @@ struct matching_schema {
 					ms[i][j] = !value;
 	}
 
+	void set_constraints(std::map<char, int>& sig1, std::map<char, int>& sig2, std::vector<p_constr>& v, bool mode) {
+		for (size_t i = 0; i < v.size(); ++i)
+			ms[sig1[v[i].first]][sig2[v[i].second]] = mode;
+	}
+
+	void set_constraint(size_t i, size_t j, bool t) { chi[i][j] = t; }
+
 	void print_matching_schema(const std::string& sigma1, const std::string& sigma2) {
 		std::cout << "\t";
 		for (int j = 0; j < m; ++j)
@@ -54,7 +77,5 @@ struct matching_schema {
 		}
 	}
 };
-
-
 
 #endif /* MATCHINGSCHEMA_H_ */
