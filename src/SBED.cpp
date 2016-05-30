@@ -6,39 +6,26 @@
 #include <vector>
 #include "MatchingSchema.h"
 #include "Alignment.h"
+#include "Utility.h"
 
 /* Definitions */
 #define endl '\n'
 #define _ASCII_START 32
 #define _DEBUG false
 
-
-/* Utility functions */
-inline unsigned fast_atoi(const char* str) {
-	unsigned val = 0;
-    while( *str ) val = val*10 + (*str++ - '0');
-    return val;
-}
-
-template <typename T>
-inline void print(T x) { std::cout << x << endl; }
-
-
 /* Consts */
 const unsigned _ASCII_LEN = 255 - 0;
 const short _END_ALIGNMENT = -2;
 const short _GAP_FLAG = -1;
 
-
 /* Functions */
-inline const int min(const int, const int, const int);
-inline void read_stdin(std::string&, std::string&);
 void extract_sigma(std::string&, std::string&);
 void define_mapping(std::string&, std::map<char,int>&);
 unsigned edit_distance_matching_schema(const unsigned*, const unsigned*, const size_t&, const size_t&, const matching_schema<bool>&);
 Alignment<int> compute_alignment(const unsigned*, const unsigned*, const size_t&, const size_t&, const matching_schema<bool>&);
 int distance_from_alignment(const Alignment<int>&, const std::string&, const std::string&, const matching_schema<bool>&, bool);
 void print_alignment(const Alignment<int>&, const std::string&, const std::string&, const matching_schema<bool>&, int&, bool);
+
 
 /* main */
 int main(int argc, char *argv[]) {
@@ -103,24 +90,14 @@ int main(int argc, char *argv[]) {
 	//unsigned d = edit_distance_matching_schema(s1i, s2i, s1l, s2l, ms);
 	Alignment<int> a = compute_alignment(s1i, s2i, s1l, s2l, ms);
 	std::cout << distance_from_alignment(a, sigma1, sigma2, ms, false) << endl;
-	//print_alignment(a, sigma1, sigma2, ms, a.distance, true);
-	//std::cout << a.distance << endl;
 
 
 	return 0;
 }
 
-/* === */
-inline const int min(const int a, const int b, const int c) {
-	if ((a<=b) && (a<=c)) return a;
-	else if ((b<=a) && (b<=c)) return b;
-	else return c;
-}
 
-inline void read_stdin(std::string& a, std::string& b) {
-	getline(std::cin, a);
-	getline(std::cin, b);
-}
+/* === */
+
 
 /**
  * extract_sigmas works with a bitset of length _ASCII_LEN (255 - _ASCII_START)
