@@ -10,6 +10,7 @@ struct matching_schema {
 	T** ms;
 	bool** chi;
 
+	// x is the default boolean value for the matrix
 	matching_schema(size_t a, size_t b, size_t c, size_t d, const T x, bool def) : n(a), m(b), p1(c), p2(d) {
 		ms = new T*[n];
 		for (size_t i = 0; i < n; ++i) ms[i] = new T[m];
@@ -41,6 +42,7 @@ struct matching_schema {
 				chi[i][j] = d;
 	}
 
+	// e.g., if value == false, ms[i][j] == false means that i and j are in match
 	void set_identity(std::string& sigma1, std::string& sigma2, T value) {
 		for (size_t i = 0; i < n; ++i)
 			for (size_t j = 0; j < m; ++j)
@@ -48,6 +50,7 @@ struct matching_schema {
 					ms[i][j] = value;
 	}
 
+	// e.g., if value == false, ms[i][j] == false means that i and j are in match
 	void set_general(const std::string& sigma1, const std::string& sigma2, T value) {
 		for (int i = 0; i < n; ++i)
 			for (int j = 0; j < m; ++j)

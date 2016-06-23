@@ -7,6 +7,8 @@ if len(sys.argv) < 5:
 #alphabets = string.printable[:94] # till the ~ symbol
 alphabets = string.ascii_lowercase
 
+random.seed()
+
 sigma_1 = random.sample(alphabets, int(sys.argv[2]))
 sigma_2 = random.sample(alphabets, int(sys.argv[3]))
 

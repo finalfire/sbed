@@ -35,9 +35,18 @@ inline void print(T x) { std::cout << x << std::endl; }
 void read_constraints(std::vector<p_constr>& l) {
 	std::string s;
 	while (getline(std::cin, s)) {
+		// TODO: this works cause we have only symbols
+		// we need a refactor in order to use tokens
 		p_constr t(s.substr(0,1)[0], s.substr(2,3)[0]);
 		l.push_back(t);
 	}
+}
+
+inline int index_of(const unsigned& x, const unsigned* s, const size_t& n) {
+	for (size_t i = 0; i < n; ++i)
+		if (s[i] == x)
+			return i;
+	return -1;
 }
 
 
