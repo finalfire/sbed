@@ -31,6 +31,7 @@ void print_alignment(const Alignment<int>&, const std::string&, const std::strin
 
 /* Solver functions */
 int bruteforce(const unsigned*, const unsigned*, const size_t&, const size_t&, const unsigned*, const unsigned*, const size_t&, const size_t&, matching_schema<bool>&);
+int hill_climbing(const unsigned*, const unsigned*, const size_t&, const size_t&, const unsigned*, const unsigned*, const size_t&, const size_t&, matching_schema<bool>&);
 
 /* main */
 int main(int argc, char *argv[]) {
@@ -113,7 +114,8 @@ int main(int argc, char *argv[]) {
 		ms.print_matching_schema(sigma1, sigma2);
 
 
-	int d = bruteforce(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, ms);
+	//int d = bruteforce(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, ms);
+	int d = hill_climbing(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, ms);
 	std::cout << d << endl;
 	//unsigned d = edit_distance_matching_schema(s1i, s2i, s1l, s2l, ms);
 	//Alignment<int> a = compute_alignment(s1i, s2i, s1l, s2l, ms);
@@ -138,18 +140,148 @@ int bruteforce(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const
 	unsigned* best_perm1 = new unsigned[sig1l]; for (unsigned i = 0; i < sig1l; ++i) perm1[i] = i;
 	unsigned* best_perm2 = new unsigned[sig2l]; for (unsigned i = 0; i < sig2l; ++i) perm2[i] = i;
 
-	do {
-		current = edit_distance_matching_schema_enhanced(s1, s2, s1l, s2l, perm1, perm2, sig1l, sig2l, m);
+	//do {
+		do {
+			current = edit_distance_matching_schema_enhanced(s1, s2, s1l, s2l, perm1, perm2, sig1l, sig2l, m);
 
-		if (current < distance) {
-			distance = current;
-			std::copy(perm1, perm1 + sig1l, best_perm1);
-			std::copy(perm2, perm2 + sig2l, best_perm2);
-		}
-	} while(std::next_permutation(perm2, perm2+sig2l));
+			if (current < distance) {
+				distance = current;
+				std::copy(perm1, perm1 + sig1l, best_perm1);
+				std::copy(perm2, perm2 + sig2l, best_perm2);
+			}
+		} while(std::next_permutation(perm2, perm2+sig2l));
+	//} while(std::next_permutation(perm1, perm1+sig1l));
 
 	return distance;
 }
+
+
+int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const size_t& s2l, const unsigned* sig1, const unsigned* sig2, const size_t& sig1l, const size_t& sig2l, matching_schema<bool>& m) {
+
+	int d = edit_distance_matching_schema(s1, s2, s1l, s2l, m);
+	int minDist = d;
+	int minMinDist = minDist;
+
+	// for swap
+	unsigned* sigma1_o = new unsigned[sig1l]; for (unsigned i = 0; i < sig1l; ++i) sigma1_o[i] = i;
+	unsigned* sigma2_o = new unsigned[sig2l]; for (unsigned i = 0; i < sig2l; ++i) sigma2_o[i] = i;
+	unsigned* sigma1_t = new unsigned[sig1l]; for (unsigned i = 0; i < sig1l; ++i) sigma1_t[i] = i;
+	unsigned* sigma2_t = new unsigned[sig2l]; for (unsigned i = 0; i < sig2l; ++i) sigma2_t[i] = i;
+	// for fixpoint on min
+	unsigned* sigma1_min = new unsigned[sig1l]; for (unsigned i = 0; i < sig1l; ++i) sigma1_min[i] = i;
+	unsigned* sigma2_min = new unsigned[sig2l]; for (unsigned i = 0; i < sig2l; ++i) sigma2_min[i] = i;
+	unsigned* sigma1_min_min = new unsigned[sig1l]; for (unsigned i = 0; i < sig2l; ++i) sigma2_min[i] = i;
+	unsigned* sigma2_min_min = new unsigned[sig2l]; for (unsigned i = 0; i < sig2l; ++i) sigma2_min_min[i] = i;
+
+	size_t attempts = 1, shuffle_tries = 10;
+	unsigned temp = 0, tries = 0, k_shuffle = 0;
+
+
+	bool improved = true;
+	while (improved) {
+		improved = false;
+
+		//if (!isValid(sigma1_o, sgl1, this->mped->getP1()))
+		//	cout << "! not valid" << endl;
+
+
+		for (size_t ip = 0; ip < sig1l; ip++) {
+			for (size_t jp = ip; jp < sig1l; jp++) {
+
+				// here comes the swap for sigma1
+				std::copy(sigma1_t, sigma1_t + sig1l, sigma1_o);
+				temp = sigma1_o[ip]; sigma1_o[ip] = sigma1_o[jp]; sigma1_o[jp] = temp;
+
+				//if (isValid(sigma1_o, sgl1, this->mped->getP1())) {
+
+					for (size_t ipp = 0; ipp < sig2l; ipp++) {
+						for (size_t jpp = ipp; jpp < sig2l; jpp++) {
+
+							// here comes the swap for sigma2
+							std::copy(sigma2_t, sigma2_t + sig2l, sigma2_o);
+							temp = sigma2_o[ipp]; sigma2_o[ipp] = sigma2_o[jpp]; sigma2_o[jpp] = temp;
+
+							d = edit_distance_matching_schema_enhanced(s1, s2, s1l, s2l, sigma1_o, sigma2_o, sig1l, sig2l, m);
+
+							if (d < minDist) {
+								minDist = d;
+
+								improved = true;
+								std::copy(sigma1_o, sigma1_o + sig1l, sigma1_min);
+								std::copy(sigma2_o, sigma2_o + sig2l, sigma2_min);
+							}
+
+						}
+
+						std::copy(sigma2_t, sigma2_t + sig2l, sigma2_o);
+					}
+
+				//} // IS VALID if
+			}
+		}
+
+		if (improved) {
+			// copy sigmaMin to sigmaOrig
+			std::copy(sigma1_min, sigma1_min + sig1l, sigma1_o);
+			std::copy(sigma2_min, sigma2_min + sig2l, sigma2_o);
+			// copy sigmaOrig to sigmaTmp
+			std::copy(sigma1_o, sigma1_o + sig1l, sigma1_t);
+			std::copy(sigma2_o, sigma2_o + sig2l, sigma2_t);
+		} else {
+			if (minDist < minMinDist) {
+				minMinDist = minDist;
+
+				// copy sigmaMin to sigmaMinMin
+				std::copy(sigma1_min, sigma1_min + sig1l, sigma1_min_min);
+				std::copy(sigma2_min, sigma2_min + sig2l, sigma2_min_min);
+
+				improved = true;
+				tries = 0;
+			}
+
+			if (tries < attempts) {
+				improved = true;
+				tries++;
+
+				// random swap
+				// for sigma1, we try _SHUFFLE_TRIES times, then if is still not valid, we retry with the original one
+				for (k_shuffle = 0; k_shuffle < shuffle_tries /*&& !this->isValid(sigma1_t, sgl1, this->mped->getP1())*/; ++k_shuffle)
+					shuffle(sigma1_t, sig1l);
+				if (k_shuffle == shuffle_tries) std::copy(sigma1_o, sigma1_o + sig1l, sigma1_t);
+				// no constraints on the shuffle for sigma2
+				shuffle(sigma2_t, sig2l);
+
+				std::copy(sigma1_t, sigma1_t + sig1l, sigma1_o);
+				std::copy(sigma2_t, sigma2_t + sig2l, sigma2_o);
+
+				minDist = edit_distance_matching_schema_enhanced(s1, s2, s1l, s2l, sigma1_o, sigma2_o, sig1l, sig2l, m);
+			} else {
+				// here's the final step: improved is false so we don't continue
+
+				/* here we return the optimal matching schema if we need to */
+				/*
+				this->computed_sigma1 = new unsigned short[sgl1];
+				copy(sigma1_min_min, sigma1_min_min + sgl1, this->computed_sigma1);
+				this->computed_sigma2 = new unsigned short[sgl2];
+				copy(sigma2_min_min, sigma2_min_min + sgl2, this->computed_sigma2);
+
+				cout << ">> MPED SCHEMA: ";
+				for (size_t i = 0; i < sgl1; i++)
+					cout << this->mped->get_Sigma1()[computed_sigma1[i]];
+				cout << " - ";
+				for (size_t i = 0; i < sgl2; i++)
+					cout << this->mped->get_Sigma2()[computed_sigma2[i]];
+				cout << endl;
+
+				this->result = min_dist;*/
+			}
+		}
+	}
+
+	return minMinDist;
+}
+
+
 
 
 /**
