@@ -40,6 +40,9 @@ void read_constraints(std::vector<p_constr>& l) {
 	}
 }
 
+
+/* USED FOR HILL CLIMBING HEURISTIC */
+
 inline int index_of(const unsigned& x, const unsigned* s, const size_t& n) {
 	for (size_t i = 0; i < n; ++i)
 		if (s[i] == x)
@@ -57,6 +60,24 @@ void shuffle(unsigned* a, size_t s) {
 	}
 }
 
+bool isValid(unsigned* s, int s_size, int p) {
+	int currentMin = INT_MAX-1;
+	int lastMin = INT_MAX;
 
+	for (int i = 0; i < s_size; i++) {
+		if (currentMin > s[i])
+			currentMin = s[i];
+
+		if (i >= p)
+			if (lastMin > currentMin)
+				return false;
+
+		if ((i % p) == (p-1)) {
+			lastMin = currentMin;
+			currentMin = INT_MAX;
+		}
+	}
+	return true;
+}
 
 #endif /* UTILITY_H_ */

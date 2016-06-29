@@ -11,7 +11,7 @@
 /* Definitions */
 #define endl '\n'
 #define _ASCII_START 32
-#define _DEBUG false
+#define _DEBUG true
 #define _MAX_ARGS_NUM 4
 
 /* Consts */
@@ -28,28 +28,28 @@ Alignment<int> compute_alignment(const unsigned*, const unsigned*, const size_t&
 int distance_from_alignment(const Alignment<int>&, const std::string&, const std::string&, const matching_schema<bool>&, bool);
 void print_alignment(const Alignment<int>&, const std::string&, const std::string&, const matching_schema<bool>&, int&, bool);
 
-
 /* Solver functions */
 int bruteforce(const unsigned*, const unsigned*, const size_t&, const size_t&, const unsigned*, const unsigned*, const size_t&, const size_t&, matching_schema<bool>&);
-int hill_climbing(const unsigned*, const unsigned*, const size_t&, const size_t&, const unsigned*, const unsigned*, const size_t&, const size_t&, matching_schema<bool>&);
+int hill_climbing(const unsigned*, const unsigned*, const size_t&, const size_t&, const unsigned*, const unsigned*, const size_t&, const size_t&, const size_t&, matching_schema<bool>&);
+
 
 /* main */
 int main(int argc, char *argv[]) {
 	std::ios_base::sync_with_stdio(false);
 
-	// arguments: p1 p2 [y | * \ {y}] [true|false]
+	// arguments: p1 p2 [y|(* \ {y})] [true|false]
 	size_t p1 = argc > 2 ? fast_atoi(argv[1]) : 1;		// default = 1
 	size_t p2 = argc > 2 ? fast_atoi(argv[2]) : 1;		// default = 1
 
 	bool has_constraints = false;						// if there are constraints
 	if (argc > 3) has_constraints = strcmp(argv[3],"1") || strcmp(argv[3], "y");
 	/* if default_constraints_mode is true:
-	 * - constraints in input mean ALL EXCEPT THESE MATCH
+	 * 		constraints in input mean ONLY THESE MATCH
 	 * otherwise:
-	 * - constraints in input mean ONLY THESE MATCH
+	 * 		constraints in input mean ALL EXCEPT THESE MATCH
 	 */
 	bool default_constraints_mode = false;				// the semantic of the constraints
-	if (has_constraints) default_constraints_mode = strcmp(argv[4], "t");
+	//if (has_constraints) default_constraints_mode = strcmp(argv[4], "t");
 
 
 	/* (1) read strings and extract sigmas and constraints too */
@@ -106,16 +106,23 @@ int main(int argc, char *argv[]) {
 	/* identity (classical) matching schema */
 	matching_schema<bool> ms(sigma1l, sigma2l, p1, p2, true, default_constraints_mode);
 	ms.set_general(sigma1, sigma2, false);
+
 	if (has_constraints)
 		ms.set_constraints(map1, map2, constraints, !default_constraints_mode);
 
 
-	if (_DEBUG)
+	if (_DEBUG) {
+		if (has_constraints) {
+			std::cout << "Constraints: ";
+			for(size_t i = 0; i < constraints.size(); ++i)
+				std::cout << constraints[i].first << ", " << constraints[i].second << endl;
+		}
 		ms.print_matching_schema(sigma1, sigma2);
+	}
 
 
 	//int d = bruteforce(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, ms);
-	int d = hill_climbing(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, ms);
+	int d = hill_climbing(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, p1, ms);
 	std::cout << d << endl;
 	//unsigned d = edit_distance_matching_schema(s1i, s2i, s1l, s2l, ms);
 	//Alignment<int> a = compute_alignment(s1i, s2i, s1l, s2l, ms);
@@ -156,7 +163,7 @@ int bruteforce(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const
 }
 
 
-int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const size_t& s2l, const unsigned* sig1, const unsigned* sig2, const size_t& sig1l, const size_t& sig2l, matching_schema<bool>& m) {
+int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const size_t& s2l, const unsigned* sig1, const unsigned* sig2, const size_t& sig1l, const size_t& sig2l, const size_t& p1, matching_schema<bool>& m) {
 
 	int d = edit_distance_matching_schema(s1, s2, s1l, s2l, m);
 	int minDist = d;
@@ -192,7 +199,7 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 				std::copy(sigma1_t, sigma1_t + sig1l, sigma1_o);
 				temp = sigma1_o[ip]; sigma1_o[ip] = sigma1_o[jp]; sigma1_o[jp] = temp;
 
-				//if (isValid(sigma1_o, sgl1, this->mped->getP1())) {
+				if (isValid(sigma1_o, sig1l, p1)) {
 
 					for (size_t ipp = 0; ipp < sig2l; ipp++) {
 						for (size_t jpp = ipp; jpp < sig2l; jpp++) {
@@ -216,7 +223,7 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 						std::copy(sigma2_t, sigma2_t + sig2l, sigma2_o);
 					}
 
-				//} // IS VALID if
+				}
 			}
 		}
 
@@ -245,7 +252,7 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 
 				// random swap
 				// for sigma1, we try _SHUFFLE_TRIES times, then if is still not valid, we retry with the original one
-				for (k_shuffle = 0; k_shuffle < shuffle_tries /*&& !this->isValid(sigma1_t, sgl1, this->mped->getP1())*/; ++k_shuffle)
+				for (k_shuffle = 0; k_shuffle < shuffle_tries && !isValid(sigma1_t, sig1l, p1); ++k_shuffle)
 					shuffle(sigma1_t, sig1l);
 				if (k_shuffle == shuffle_tries) std::copy(sigma1_o, sigma1_o + sig1l, sigma1_t);
 				// no constraints on the shuffle for sigma2
@@ -255,7 +262,7 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 				std::copy(sigma2_t, sigma2_t + sig2l, sigma2_o);
 
 				minDist = edit_distance_matching_schema_enhanced(s1, s2, s1l, s2l, sigma1_o, sigma2_o, sig1l, sig2l, m);
-			} else {
+			} //else {
 				// here's the final step: improved is false so we don't continue
 
 				/* here we return the optimal matching schema if we need to */
@@ -274,7 +281,7 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 				cout << endl;
 
 				this->result = min_dist;*/
-			}
+			//}
 		}
 	}
 
