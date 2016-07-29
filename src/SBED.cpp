@@ -7,26 +7,22 @@
 #include "MatchingSchema.h"
 #include "Alignment.h"
 #include "Utility.h"
+#include "EditDistance.h"
 
 /* Definitions */
 #define endl '\n'
 #define _ASCII_START 32
-#define _DEBUG true
+#define _DEBUG false
 #define _MAX_ARGS_NUM 4
 
 /* Consts */
 const unsigned _ASCII_LEN = 255 - 0;
-const short _END_ALIGNMENT = -2;
-const short _GAP_FLAG = -1;
 
 /* Functions */
 void extract_sigma(std::string&, std::string&);
 void define_mapping(std::string&, std::map<char,int>&);
-unsigned edit_distance_matching_schema_enhanced(const unsigned*, const unsigned*, const size_t&, const size_t&,	const unsigned*, const unsigned*, const size_t&, const size_t&, const matching_schema<bool>&);
-unsigned edit_distance_matching_schema(const unsigned*, const unsigned*, const size_t&, const size_t&, const matching_schema<bool>&);
-Alignment<int> compute_alignment(const unsigned*, const unsigned*, const size_t&, const size_t&, const matching_schema<bool>&);
-int distance_from_alignment(const Alignment<int>&, const std::string&, const std::string&, const matching_schema<bool>&, bool);
 void print_alignment(const Alignment<int>&, const std::string&, const std::string&, const matching_schema<bool>&, int&, bool);
+// for edit distance
 
 /* Solver functions */
 int bruteforce(const unsigned*, const unsigned*, const size_t&, const size_t&, const unsigned*, const unsigned*, const size_t&, const size_t&, matching_schema<bool>&);
@@ -52,7 +48,7 @@ int main(int argc, char *argv[]) {
 	//if (has_constraints) default_constraints_mode = strcmp(argv[4], "t");
 
 
-	/* (1) read strings and extract sigmas and constraints too */
+	/* (1) read strings, extract sigmas and constraints too */
 	std::string s1, s2;
 	std::string sigma1(""), sigma2("");
 
@@ -114,7 +110,7 @@ int main(int argc, char *argv[]) {
 	if (_DEBUG) {
 		if (has_constraints) {
 			std::cout << "Constraints: ";
-			for(size_t i = 0; i < constraints.size(); ++i)
+			for(std::vector<p_constr>::size_type i = 0; i < constraints.size(); ++i)
 				std::cout << constraints[i].first << ", " << constraints[i].second << endl;
 		}
 		ms.print_matching_schema(sigma1, sigma2);
@@ -124,7 +120,7 @@ int main(int argc, char *argv[]) {
 	//int d = bruteforce(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, ms);
 	int d = hill_climbing(s1i, s2i, s1l, s2l, sigma1i, sigma2i, sigma1l, sigma2l, p1, ms);
 	std::cout << d << endl;
-	//unsigned d = edit_distance_matching_schema(s1i, s2i, s1l, s2l, ms);
+
 	//Alignment<int> a = compute_alignment(s1i, s2i, s1l, s2l, ms);
 	//std::cout << distance_from_alignment(a, sigma1, sigma2, ms, false) << endl;
 
@@ -159,9 +155,14 @@ int bruteforce(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const
 		} while(std::next_permutation(perm2, perm2+sig2l));
 	//} while(std::next_permutation(perm1, perm1+sig1l));
 
+	if (_DEBUG) {
+		std::cout << "best matching schema (brute force):" << endl;
+		for (size_t i = 0; i < sig1l; ++i) std::cout << best_perm1[i]; std::cout << endl;
+		for (size_t i = 0; i < sig2l; ++i) std::cout << best_perm2[i]; std::cout << endl;
+	}
+
 	return distance;
 }
-
 
 int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, const size_t& s2l, const unsigned* sig1, const unsigned* sig2, const size_t& sig1l, const size_t& sig2l, const size_t& p1, matching_schema<bool>& m) {
 
@@ -271,7 +272,6 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 				copy(sigma1_min_min, sigma1_min_min + sgl1, this->computed_sigma1);
 				this->computed_sigma2 = new unsigned short[sgl2];
 				copy(sigma2_min_min, sigma2_min_min + sgl2, this->computed_sigma2);
-
 				cout << ">> MPED SCHEMA: ";
 				for (size_t i = 0; i < sgl1; i++)
 					cout << this->mped->get_Sigma1()[computed_sigma1[i]];
@@ -279,7 +279,6 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 				for (size_t i = 0; i < sgl2; i++)
 					cout << this->mped->get_Sigma2()[computed_sigma2[i]];
 				cout << endl;
-
 				this->result = min_dist;*/
 			//}
 		}
@@ -287,8 +286,6 @@ int hill_climbing(const unsigned* s1, const unsigned* s2,  const size_t& s1l, co
 
 	return minMinDist;
 }
-
-
 
 
 /**
@@ -309,169 +306,6 @@ void extract_sigma(std::string& s, std::string& e) {
 void define_mapping(std::string& s, std::map<char,int>& m) {
 	for (size_t i = 0; i < s.size(); ++i)
 		m.insert(std::pair<char,int>(s[i], i));
-}
-
-unsigned edit_distance_matching_schema_enhanced(const unsigned* a, const unsigned* b, const size_t& al, const size_t& bl,
-		const unsigned* sg1, const unsigned* sg2, const size_t& sg1l, const size_t& sg2l, const matching_schema<bool>& m) {
-
-	unsigned** d = new unsigned*[al+1];
-	for (size_t i = 0; i < al + 1; ++i) d[i] = new unsigned[bl+1];
-
-	// (1) first row and first column
-	for (size_t i = 0; i < al+1; ++i) d[i][0] = i;
-	for (size_t j = 0; j < bl+1; ++j) d[0][j] = j;
-
-	// (2) fill the matrix
-	for (size_t i = 1; i < al+1; ++i)
-		for (size_t j = 1; j < bl+1; ++j) {
-			d[i][j] = min(
-					d[i-1][j] + 1,																		// deletion
-					d[i][j-1] + 1,																		// insertion
-					d[i-1][j-1] + 1 * m.ms[index_of(a[i-1], sg1, sg1l)][index_of(b[j-1], sg2, sg2l)]	// if in the matching schema there's a false, they match
-			);
-		}
-
-	// (3) the computed distance
-	unsigned my_dist = d[al][bl];
-
-	for (size_t i = 0; i < al; ++i) delete[] d[i];
-	delete[] d;
-
-	return my_dist;
-}
-
-unsigned edit_distance_matching_schema(const unsigned* a, const unsigned* b, const size_t& al, const size_t& bl, const matching_schema<bool>& m) {
-
-	unsigned** d = new unsigned*[al+1];
-	for (size_t i = 0; i < al + 1; ++i) d[i] = new unsigned[bl+1];
-
-	// (1) first row and first column
-	for (size_t i = 0; i < al+1; ++i) d[i][0] = i;
-	for (size_t j = 0; j < bl+1; ++j) d[0][j] = j;
-
-	// (2) fill the matrix
-	for (size_t i = 1; i < al+1; ++i)
-		for (size_t j = 1; j < bl+1; ++j) {
-			d[i][j] = min(
-					d[i-1][j] + 1,							// deletion
-					d[i][j-1] + 1,							// insertion
-					d[i-1][j-1] + 1 * m.ms[a[i-1]][b[j-1]]	// if in the matching schema there's a false, they match
-			);
-		}
-
-	// (3) the computed distance
-	unsigned my_dist = d[al][bl];
-
-	for (size_t i = 0; i < al; ++i) delete[] d[i];
-	delete[] d;
-
-	return my_dist;
-}
-
-Alignment<int> compute_alignment(const unsigned* a, const unsigned* b, const size_t& al, const size_t& bl, const matching_schema<bool>& m) {
-	unsigned** d = new unsigned*[al+1];
-	for (size_t i = 0; i < al + 1; ++i) d[i] = new unsigned[bl+1];
-	char** path = new char*[al+1];
-	for (size_t i = 0; i < al + 1; ++i) path[i] = new char[bl+1];
-
-	// (1) first row and first column
-	for (size_t i = 0; i <= al; ++i) { d[i][0] = i; path[i][0] = 'n'; }
-	for (size_t j = 0; j <= bl; ++j) { d[0][j] = j; path[0][j] = 'o'; }
-
-	// (2) fill the matrix
-	for (size_t i = 1; i <= al; ++i) {
-		for (size_t j = 1; j <= bl; ++j) {
-			d[i][j] = min(
-					d[i-1][j] + 1,								// deletion
-					d[i][j-1] + 1,								// insertion
-					d[i-1][j-1] + 1 * m.ms[a[i-1]][b[j-1]]		// if in the matching schema there's a false, they match
-			);
-
-
-			// (3) annotating the path for the backtrace
-			if (d[i][j] == (d[i-1][j-1] + 1 * m.ms[a[i-1]][b[j-1]]))
-				path[i][j] = 'd';
-			else if (d[i][j] == d[i-1][j] + 1)
-				path[i][j] = 'n';
-			else
-				path[i][j] = 'o';
-		}
-	}
-
-	// (3) the computed distance
-	unsigned my_dist = d[al][bl];
-
-	// (4) here I start the backtrace
-	unsigned maxl = (al > bl) ? al : bl;
-	int x = 2 * maxl - 1;
-
-	std::vector<int> all1(2*maxl, -1);
-	std::vector<int> all2(2*maxl, -1);
-
-	int i = al;
-	int j = bl;
-
-	while (i >= 0 || j >= 0) {
-		if (i == 0 && j == 0) {
-			break;
-		} else {
-			if (path[i][j] == 'n') {
-				all1[x] = a[i-1];
-				all2[x] = _GAP_FLAG;
-				i = i-1;
-				x--;
-			} else if (path[i][j] == 'd') {
-				all1[x] = a[i-1];
-				all2[x] = b[j-1];
-				i = i-1;
-				j = j-1;
-				x--;
-			} else {
-				all1[x] = _GAP_FLAG;
-				all2[x] = b[j-1];
-				j = j-1;
-				x--;
-			}
-		}
-	}
-
-	// (5) here I define the alignment
-	Alignment<int> alignment(my_dist, 2*maxl-x);
-
-	size_t k = 0;
-	for (k = x+1; k <= 2*maxl-1; k++)
-		alignment.a[k-x-1] = all1[k];
-	alignment.a[k-x-1] = -2;
-	for (k = x+1; k <= 2*maxl-1; k++)
-		alignment.b[k-x-1] = all2[k];
-	alignment.b[k-x-1] = -2;
-
-
-	// (6) deallocate everything
-	for (size_t i = 0; i < al; ++i) delete[] path[i];
-	delete[] path;
-	for (size_t i = 0; i < al; ++i) delete[] d[i];
-	delete[] d;
-
-	return alignment;
-}
-
-int distance_from_alignment(const Alignment<int>& alignment, const std::string& sigma1, const std::string& sigma2, const matching_schema<bool>& m, bool is_identity) {
-	// print the alignment (a string containing * or space)
-	size_t index = 0;
-	size_t temp = 0;
-	for (; alignment.a[index] != _END_ALIGNMENT; index++) {
-		// if both chars are not gaps
-		if (alignment.a[index] != _GAP_FLAG && alignment.b[index] != _GAP_FLAG) {
-			if (	!m.ms[alignment.a[index]][alignment.b[index]] || 									// if they are in match or
-					(is_identity && (sigma1[alignment.a[index]] == sigma2[alignment.b[index]]))		) {	// the self_identity is active and they are the same char
-				temp++;
-			}
-		}
-	}
-
-	// here we return the new edit distance including the self_identity case
-	return index - temp;
 }
 
 void print_alignment(const Alignment<int>& alignment, const std::string& sigma1, const std::string& sigma2, const matching_schema<bool>& m, int& distance, bool is_identity) {
